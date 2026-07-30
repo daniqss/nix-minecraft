@@ -810,9 +810,14 @@ in
           ExecStartPre =
             let
               backup = file: ''
-                if [[ -e ${file} ]]; then
+                # remove store symlink to avoid backing it up
+                if [[ -L ${file} && "$(readlink ${file})" == /nix/store/* ]]; then
+                  rm ${file}
+
+                # backup existing file if it exists
+                elif [[ -e ${file} || -L ${file} ]]; then
                   echo ${file} "already exists, moving"
-                  mv ${file} ${file}.bak
+                  mv -T --backup=numbered ${file} ${file}.bak
                 fi
               '';
               mkSymlinks = concatStringsSep "\n" (
@@ -826,7 +831,7 @@ in
                     ${backup n}
                     mkdir -p "$(dirname ${n})"
 
-                    ln -sf ${v} ${n}
+                    ln -sfT ${v} ${n}
 
                     ${markManaged n}
                   ''
